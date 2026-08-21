@@ -3,7 +3,7 @@
 The CLI for the open agent skills ecosystem.
 
 <!-- agent-list:start -->
-Supports **OpenCode**, **Claude Code**, **Codex**, **Cursor**, and [72 more](#supported-agents).
+Supports **OpenCode**, **Claude Code**, **Codex**, **Cursor**, and [74 more](#supported-agents).
 <!-- agent-list:end -->
 
 [![skills.sh](https://skills.sh/b/vercel-labs/skills)](https://skills.sh/vercel-labs/skills)
@@ -278,6 +278,7 @@ Skills can be installed to any of these agents:
 | Augment | `augment` | `.augment/skills/` | `~/.augment/skills/` |
 | IBM Bob | `bob` | `.bob/skills/` | `~/.bob/skills/` |
 | Claude Code | `claude-code` | `.claude/skills/` | `~/.claude/skills/` |
+| Claude Managed Agents | `claude-managed-agents` | Uploads to the Anthropic Skills API | Uploads to the Anthropic Skills API |
 | OpenClaw | `openclaw` | `skills/` | `~/.openclaw/skills/` |
 | Cline, Dexto, Kimi Code CLI, Loaf, Warp, Zed | `cline`, `dexto`, `kimi-code-cli`, `loaf`, `warp`, `zed` | `.agents/skills/` | `~/.agents/skills/` |
 | CodeArts Agent | `codearts-agent` | `.codeartsdoer/skills/` | `~/.codeartsdoer/skills/` |
@@ -319,6 +320,7 @@ Skills can be installed to any of these agents:
 | OpenHands | `openhands` | `.openhands/skills/` | `~/.openhands/skills/` |
 | Ona | `ona` | `.ona/skills/` | `~/.ona/skills/` |
 | Pi | `pi` | `.pi/skills/` | `~/.pi/agent/skills/` |
+| Posit Assistant | `posit-assistant` | `.posit/assistant/skills/` | `~/.posit/assistant/skills/` |
 | Qoder | `qoder` | `.qoder/skills/` | `~/.qoder/skills/` |
 | Qoder CN | `qoder-cn` | `.qoder/skills/` | `~/.qoder-cn/skills/` |
 | Qwen Code | `qwen-code` | `.qwen/skills/` | `~/.qwen/skills/` |
@@ -351,6 +353,33 @@ Skills can be installed to any of these agents:
 
 The CLI automatically detects which coding agents you have installed. If none are detected, you'll be prompted to select
 which agents to install to.
+
+### Claude Managed Agents
+
+`claude-managed-agents` is an API target rather than a directory: each selected skill is uploaded to the
+[Anthropic Skills API](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview), where it becomes available
+to your [Claude managed agents](https://platform.claude.com/docs/en/managed-agents/skills) (and to the
+Messages API code-execution container) as a custom skill.
+
+```bash
+npx skills add vercel-labs/agent-skills --agent claude-managed-agents
+```
+
+Credentials are resolved in this order:
+
+1. `ANTHROPIC_API_KEY` environment variable
+2. `ANTHROPIC_AUTH_TOKEN` environment variable
+3. The Anthropic CLI's stored login (run `ant auth login`); expired tokens are refreshed automatically
+4. The Anthropic CLI credentials file (`~/.config/anthropic`), when the `ant` binary isn't on `PATH`
+
+Behavior notes:
+
+- Adding a skill that already exists in your workspace (matched by the id recorded in the lock file, otherwise by
+  display name) uploads a new version of that skill instead of creating a duplicate.
+- This target is never auto-detected and is excluded from `--agent '*'` and `--all`, so bulk installs can't upload to
+  your Anthropic workspace by accident. Select it explicitly with `--agent claude-managed-agents` or in the
+  interactive prompt.
+- `ANTHROPIC_BASE_URL` is honored for non-default API endpoints.
 
 ## Creating Skills
 
@@ -452,6 +481,7 @@ discover `SKILL.md` files outside these container directories (e.g. under
 - `.openhands/skills/`
 - `.ona/skills/`
 - `.pi/skills/`
+- `.posit/assistant/skills/`
 - `.qoder/skills/`
 - `.qwen/skills/`
 - `.reasonix/skills/`
@@ -566,6 +596,7 @@ GitHub repository and skill identifiers are sent only for repositories that GitH
 - [Qwen Code Skills Documentation](https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/)
 - [OpenHands Skills Documentation](https://docs.openhands.ai/modules/usage/how-to/using-skills)
 - [Pi Skills Documentation](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md)
+- [Posit Assistant Skills Documentation](https://assistant.posit.co/docs/features/skills/)
 - [Qoder Skills Documentation](https://docs.qoder.com/cli/Skills)
 - [Replit Skills Documentation](https://docs.replit.com/replitai/skills)
 - [Roo Code Skills Documentation](https://docs.roocode.com/features/skills)

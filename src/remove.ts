@@ -2,7 +2,7 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { readdir, rm, lstat } from 'fs/promises';
 import { join } from 'path';
-import { agents, detectInstalledAgents, getEveSubagents } from './agents.ts';
+import { agents, detectInstalledAgents, getEveSubagents, isApiUploadAgent } from './agents.ts';
 import { track } from './telemetry.ts';
 import { detectAgent } from './detect-agent.ts';
 import { removeSkillFromLock, getSkillFromLock, readSkillLock } from './skill-lock.ts';
@@ -58,6 +58,19 @@ export function resolveSkillsToRemove(
   return Array.from(matched);
 }
 
+/**
+ * Deleting a lock entry that records a Claude Managed Agents upload orphans
+ * the uploaded skill: it stays live in the user's Anthropic workspace,
+ * and the recorded id (the direct re-upload path) is lost. Say so instead of
+ * letting the removal read as complete.
+ */
+function warnAboutManagedUpload(skillName: string, managedSkillId: string | undefined): void {
+  if (!managedSkillId) return;
+  p.log.warn(
+    `${skillName} was uploaded to Claude Managed Agents (${managedSkillId}). The uploaded skill remains in your Anthropic workspace; manage it via the Anthropic API.`
+  );
+}
+
 export async function removeCommand(skillNames: string[], options: RemoveOptions) {
   // Auto-enable non-interactive mode when running inside an AI agent
   const agentResult = await detectAgent();
@@ -68,6 +81,25 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
         ' ' +
         'Agent detected — removing non-interactively'
     );
+  }
+
+  // `--skill '*'` is the documented synonym for selecting every skill.
+  if (skillNames.includes('*')) {
+    options.all = true;
+    skillNames = skillNames.filter((name) => name !== '*');
+  }
+
+  // Footgun: `remove --skill foo --all` used to ignore `foo` and wipe everything,
+  // because `--all` replaced the requested list with every installed skill.
+  // Refuse the combination so agents/scripts cannot accidentally mass-delete.
+  const namedSkills = skillNames.filter((name) => name !== '*');
+  if (options.all && namedSkills.length > 0) {
+    p.log.error('Cannot combine --all with specific skill names.');
+    p.log.info(
+      'Use `skills remove --all` to remove every skill, or omit --all to remove only the named skills.'
+    );
+    p.log.info(`Example: skills remove ${namedSkills[0]} -y`);
+    process.exit(1);
   }
 
   const isGlobal = options.global ?? false;
@@ -178,6 +210,21 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
   let targetAgents: AgentType[];
   if (options.agent && options.agent.length > 0) {
     targetAgents = options.agent as AgentType[];
+
+    // API-upload agents have no local files; their skills live in the user's
+    // Anthropic workspace and are not deleted by this command. Say so
+    // instead of reporting a successful no-op removal.
+    const apiUploadRequested = targetAgents.filter((a) => isApiUploadAgent(a));
+    if (apiUploadRequested.length > 0) {
+      targetAgents = targetAgents.filter((a) => !isApiUploadAgent(a));
+      p.log.warn(
+        `${apiUploadRequested.map((a) => agents[a].displayName).join(', ')} skills are managed through the Anthropic API and are not removed by this command.`
+      );
+      if (targetAgents.length === 0) {
+        p.outro(pc.yellow('Nothing to remove.'));
+        return;
+      }
+    }
   } else {
     // When removing, we should target all known agents to ensure
     // ghost symlinks are cleaned up, even if the agent is not detected.
@@ -289,6 +336,7 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
         effectiveSource = lockEntry?.source || 'local';
         effectiveSourceType = lockEntry?.sourceType || 'local';
         if (!isStillUsed) {
+          warnAboutManagedUpload(skillName, lockEntry?.managedSkillId);
           await removeSkillFromLock(skillName);
         }
       } else {
@@ -297,6 +345,7 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
         effectiveSource = lockEntry?.source || 'local';
         effectiveSourceType = lockEntry?.sourceType || 'local';
         if (!isStillUsed) {
+          warnAboutManagedUpload(skillName, lockEntry?.managedSkillId);
           await removeSkillFromLocalLock(skillName, cwd);
         }
       }
@@ -363,6 +412,10 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
 /**
  * Parse command line options for the remove command.
  * Separates skill names from options flags.
+ *
+ * Supports both positional names (`skills remove foo`) and `-s/--skill`
+ * (documented in the CLI help). Unknown flags that start with `-` are ignored
+ * so we do not treat `--skill` as a skill name when the flag is misspelled.
  */
 export function parseRemoveOptions(args: string[]): { skills: string[]; options: RemoveOptions } {
   const options: RemoveOptions = {};
@@ -377,6 +430,16 @@ export function parseRemoveOptions(args: string[]): { skills: string[]; options:
       options.yes = true;
     } else if (arg === '--all') {
       options.all = true;
+      options.yes = true;
+    } else if (arg === '-s' || arg === '--skill') {
+      i++;
+      let nextArg = args[i];
+      while (i < args.length && nextArg && !nextArg.startsWith('-')) {
+        skills.push(nextArg);
+        i++;
+        nextArg = args[i];
+      }
+      i--; // Back up one since the loop will increment
     } else if (arg === '-a' || arg === '--agent') {
       options.agent = options.agent || [];
       i++;

@@ -67,6 +67,15 @@ export function isMiniMaxCodeInstalled(
   return pathExists(join(homeDir, '.minimax')) || pathExists('/Applications/MiniMax Code.app');
 }
 
+export function isPositAssistantInstalled(
+  homeDir = home,
+  pathExists: (path: string) => boolean = existsSync
+) {
+  // ~/.positai is the pre-rename config dir, still present on installs
+  // that haven't launched a current version yet.
+  return pathExists(join(homeDir, '.posit/assistant')) || pathExists(join(homeDir, '.positai'));
+}
+
 export const agents: Record<AgentType, AgentConfig> = {
   'aider-desk': {
     name: 'aider-desk',
@@ -148,6 +157,19 @@ export const agents: Record<AgentType, AgentConfig> = {
     detectInstalled: async () => {
       return existsSync(claudeHome);
     },
+  },
+  'claude-managed-agents': {
+    name: 'claude-managed-agents',
+    displayName: 'Claude Managed Agents',
+    // Placeholder path; never written to. Skills for this target are uploaded
+    // to the Anthropic Skills API (see managed-agents.ts).
+    skillsDir: '.claude-managed-agents/skills',
+    globalSkillsDir: undefined,
+    install: 'api-upload',
+    installHint: 'Uploads to the Anthropic Skills API',
+    // Uploading to the user's Anthropic workspace must be an explicit
+    // choice, so this target is never auto-detected.
+    detectInstalled: async () => false,
   },
   openclaw: {
     name: 'openclaw',
@@ -555,6 +577,15 @@ export const agents: Record<AgentType, AgentConfig> = {
       return existsSync(join(home, '.pi/agent'));
     },
   },
+  'posit-assistant': {
+    name: 'posit-assistant',
+    displayName: 'Posit Assistant',
+    skillsDir: '.posit/assistant/skills',
+    globalSkillsDir: join(home, '.posit/assistant/skills'),
+    detectInstalled: async () => {
+      return isPositAssistantInstalled();
+    },
+  },
   qoder: {
     name: 'qoder',
     displayName: 'Qoder',
@@ -860,4 +891,20 @@ export function getNonUniversalAgents(): AgentType[] {
  */
 export function isUniversalAgent(type: AgentType): boolean {
   return agents[type].skillsDir === '.agents/skills';
+}
+
+/**
+ * Agents whose skills are pushed through an API instead of written to disk.
+ * They have no skills directory and must be selected explicitly.
+ */
+export function isApiUploadAgent(type: AgentType): boolean {
+  return agents[type].install === 'api-upload';
+}
+
+/**
+ * Agent types that install to the filesystem. API-upload agents are excluded;
+ * they must be requested explicitly by name.
+ */
+export function getWildcardAgents(): AgentType[] {
+  return (Object.keys(agents) as AgentType[]).filter((type) => !isApiUploadAgent(type));
 }

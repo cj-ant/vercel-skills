@@ -135,12 +135,16 @@ ${BOLD}Project:${RESET}
 ${BOLD}Add Options:${RESET}
   -g, --global           Install skill globally (user-level) instead of project-level
   -a, --agent <agents>   Specify agents to install to (use '*' for all agents)
+                         'claude-managed-agents' uploads to the Anthropic Skills API
+                         (requires \`ant auth login\` or ANTHROPIC_API_KEY)
   -s, --skill <skills>   Specify skill names to install (use '*' for all skills)
   -l, --list             List available skills in the repository without installing
   -y, --yes              Skip confirmation prompts
   --copy                 Copy files instead of symlinking to agent directories
   --metadata <json>      Attach valid JSON to the install telemetry event
   --subagent <names>     Install to Eve subagents (use 'root' for the root agent)
+  --managed-agents       Also upload to Claude Managed Agents on top of the
+                         selected agents (skipped with a warning if no credentials)
   --all                  Shorthand for --skill '*' --agent '*' -y
   --full-depth           Search all subdirectories even when a root SKILL.md exists
 
@@ -151,10 +155,10 @@ ${BOLD}Use Options:${RESET}
 
 ${BOLD}Remove Options:${RESET}
   -g, --global           Remove from global scope
-  -a, --agent <agents>   Remove from specific agents (use '*' for all agents)
+  -a, --agent <agents>   Remove from specific agents (omit to clean all agent links)
   -s, --skill <skills>   Specify skills to remove (use '*' for all skills)
   -y, --yes              Skip confirmation prompts
-  --all                  Shorthand for --skill '*' --agent '*' -y
+  --all                  Remove every installed skill (-y implied). Do not combine with named skills.
   
 ${BOLD}Experimental Sync Options:${RESET}
   -a, --agent <agents>   Specify agents to install to (use '*' for all agents)
@@ -211,10 +215,10 @@ ${BOLD}Arguments:${RESET}
 
 ${BOLD}Options:${RESET}
   -g, --global       Remove from global scope (~/) instead of project scope
-  -a, --agent        Remove from specific agents (use '*' for all agents)
+  -a, --agent        Remove from specific agents (omit to clean all agent links)
   -s, --skill        Specify skills to remove (use '*' for all skills)
   -y, --yes          Skip confirmation prompts
-  --all              Shorthand for --skill '*' --agent '*' -y
+  --all              Remove every installed skill (-y implied). Do not combine with named skills.
 
 ${BOLD}Examples:${RESET}
   ${DIM}$${RESET} skills remove                           ${DIM}# interactive selection${RESET}
